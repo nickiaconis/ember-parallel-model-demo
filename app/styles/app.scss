@@ -1,0 +1,100 @@
+$blue: #008CC9;
+$green: #8CC900;
+$red: #C9008C;
+$circle-timing: 500ms;
+
+html {
+  height: 100%;
+  border: 1px solid lightgray;
+  box-sizing: border-box;
+}
+
+@mixin smartglass($size,$timing) {
+  /* absolute position with 3d animation = render layer */
+  position: absolute;
+  display: block;
+  box-sizing: border-box;
+
+  width: $size;
+  height: $size;
+
+  border: 3px solid transparent;
+  border-top: 3px solid;
+  border-radius: 50%;
+
+  /* shared animation */
+  animation: rotate $timing linear infinite;
+}
+
+.loader {
+  @include smartglass(100px,$circle-timing);
+
+  top: 50%;
+  left: 50%;
+
+  &:before {
+    @include smartglass(75%,($circle-timing * 9.5));
+
+    content: '';
+
+    top: 50%;
+    left: 50%;
+  }
+
+  &:after {
+    @include smartglass(50%,($circle-timing * 4.25));
+
+    content: '';
+
+    top: 50%;
+    left: 50%;
+  }
+}
+
+.blue {
+  color: $blue;
+}
+
+.green {
+  color: $green;
+}
+
+.red {
+  color: $red;
+}
+
+@keyframes rotate {
+  /* rotate on 3d transform for best perf, it ensures GPU accelerated animation */
+  /* translate places origin at center */
+  from {
+    transform: translate(-50%,-50%) rotateZ(360deg);
+  }
+  to {
+    transform: translate(-50%,-50%) rotateZ(0deg);
+  }
+}
+
+.log-output {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  border: 1px solid lightgray;
+  box-sizing: border-box;
+  background-color: white;
+  transition: opacity 250ms;
+
+  &:hover {
+    opacity: 0.05;
+  }
+}
+
+.log-item {
+  width: 100%;
+  padding: 4px;
+  font: 12px monospace;
+
+  & + .log-item {
+    border-top: 1px solid lightgray;
+  }
+}

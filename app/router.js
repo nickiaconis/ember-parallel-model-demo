@@ -6,6 +6,11 @@ var Router = Ember.Router.extend({
 });
 
 Router.map(function() {
+  this.route('authenticated', { path: '/' }, function() {
+    this.route('parent', { path: '/' }, function() {
+      this.route('child', { path: '/' });
+    });
+  });
 });
 
 export default Router;

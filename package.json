@@ -1,7 +1,7 @@
 {
-  "name": "multiplexer-fiddling",
+  "name": "ember-parallel-model-demo",
   "version": "0.0.0",
-  "description": "Small description for multiplexer-fiddling goes here",
+  "description": "Small description for ember-parallel-model-demo goes here",
   "private": true,
   "directories": {
     "doc": "doc",
@@ -31,6 +31,7 @@
     "ember-cli-inject-live-reload": "^1.3.1",
     "ember-cli-qunit": "^1.0.0",
     "ember-cli-release": "0.2.3",
+    "ember-cli-sass": "^4.1.0",
     "ember-cli-sri": "^1.0.3",
     "ember-cli-uglify": "^1.2.0",
     "ember-data": "1.13.8",
