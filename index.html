@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Demo | Parallel Model Hooks</title>
+    <style>
+      html, body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+
+      .iframe-wrapper {
+        width: 50%;
+        height: 100%;
+        float: left;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="iframe-wrapper">
+      <iframe src="sequential-dist/index.html" width="100%" height="100%" frameBorder=0></iframe>
+    </div>
+    <div class="iframe-wrapper">
+      <iframe src="parallel-dist/index.html" width="100%" height="100%" frameBorder=0></iframe>
+    </div>
+  </body>
+</html>

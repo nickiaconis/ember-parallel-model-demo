@@ -1,0 +1,87 @@
+html {
+  height: 100%;
+  border: 1px solid lightgray;
+  box-sizing: border-box; }
+
+.loader {
+  /* absolute position with 3d animation = render layer */
+  position: absolute;
+  display: block;
+  box-sizing: border-box;
+  width: 100px;
+  height: 100px;
+  border: 3px solid transparent;
+  border-top: 3px solid;
+  border-radius: 50%;
+  /* shared animation */
+  animation: rotate 500ms linear infinite;
+  top: 50%;
+  left: 50%; }
+  .loader:before {
+    /* absolute position with 3d animation = render layer */
+    position: absolute;
+    display: block;
+    box-sizing: border-box;
+    width: 75%;
+    height: 75%;
+    border: 3px solid transparent;
+    border-top: 3px solid;
+    border-radius: 50%;
+    /* shared animation */
+    animation: rotate 4750ms linear infinite;
+    content: '';
+    top: 50%;
+    left: 50%; }
+  .loader:after {
+    /* absolute position with 3d animation = render layer */
+    position: absolute;
+    display: block;
+    box-sizing: border-box;
+    width: 50%;
+    height: 50%;
+    border: 3px solid transparent;
+    border-top: 3px solid;
+    border-radius: 50%;
+    /* shared animation */
+    animation: rotate 2125ms linear infinite;
+    content: '';
+    top: 50%;
+    left: 50%; }
+
+.blue {
+  color: #008CC9; }
+
+.green {
+  color: #8CC900; }
+
+.red {
+  color: #C9008C; }
+
+@keyframes rotate {
+  /* rotate on 3d transform for best perf, it ensures GPU accelerated animation */
+  /* translate places origin at center */
+  from {
+    transform: translate(-50%, -50%) rotateZ(360deg); }
+  to {
+    transform: translate(-50%, -50%) rotateZ(0deg); } }
+
+.log-output {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  border: 1px solid lightgray;
+  box-sizing: border-box;
+  background-color: white;
+  transition: opacity 250ms; }
+  .log-output:hover {
+    opacity: 0.05; }
+
+.log-item {
+  width: 100%;
+  padding: 4px;
+  font: 12px monospace; }
+  .log-item + .log-item {
+    border-top: 1px solid lightgray; }
+
+/*# sourceMappingURL=ember-parallel-model-demo.css.map */
