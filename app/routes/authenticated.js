@@ -1,19 +1,10 @@
 import Ember from 'ember';
 
 export default Ember.Route.extend({
-  beforeModel() {
-    return new Ember.RSVP.Promise(function(resolve, reject) {
-      setTimeout(function() { console.log("beforeModel - authenticated"); resolve({whichModel: "authenticated"}); }, 1500);
-    });
-  },
   model() {
+    console.log("authenticated - model entered");
     return new Ember.RSVP.Promise(function(resolve, reject) {
-      setTimeout(function() { console.log("model - authenticated"); resolve({whichModel: "authenticated"}); }, 1500);
-    });
-  },
-  afterModel() {
-    return new Ember.RSVP.Promise(function(resolve, reject) {
-      setTimeout(function() { console.log("afterModel - authenticated"); resolve({whichModel: "authenticated"}); }, 1500);
+      setTimeout(function() { resolve({whichModel: "authenticated"}); console.log("authenticated - model resolved"); }, 2000);
     });
   }
 });

@@ -1,19 +1,10 @@
 import Ember from 'ember';
 
 export default Ember.Route.extend({
-  beforeModel() {
-    return new Ember.RSVP.Promise(function(resolve, reject) {
-      setTimeout(function() { console.log("beforeModel - parent"); resolve({whichModel: "parent"}); }, 1500);
-    });
-  },
   model() {
+    console.log("parent - model entered");
     return new Ember.RSVP.Promise(function(resolve, reject) {
-      setTimeout(function() { console.log("model - parent"); resolve({whichModel: "parent"}); }, 1500);
-    });
-  },
-  afterModel() {
-    return new Ember.RSVP.Promise(function(resolve, reject) {
-      setTimeout(function() { console.log("afterModel - parent"); resolve({whichModel: "parent"}); }, 1500);
+      setTimeout(function() { resolve({whichModel: "parent"}); console.log("parent - model resolved"); }, 1000);
     });
   }
 });
