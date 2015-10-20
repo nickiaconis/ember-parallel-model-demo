@@ -166,31 +166,13 @@ define('ember-parallel-model-demo/routes/authenticated/parent/child', ['exports'
   'use strict';
 
   exports['default'] = Ember['default'].Route.extend({
-    beforeModel: function beforeModel() {
-      return new Ember['default'].RSVP.Promise(function (resolve, reject) {
-        setTimeout(function () {
-          console.log("beforeModel - child");resolve({ whichModel: "child" });
-        }, 1500);
-      });
-    },
     model: function model() {
-      var that = this;
-      this.modelFor('authenticated');
+      console.log("child - model entered");
+      this.modelFor('authenticated'); // => Object
       return new Ember['default'].RSVP.Promise(function (resolve, reject) {
         setTimeout(function () {
-          console.log("model - child");
-          resolve({ whichModel: "child" });
-          setTimeout(function () {
-            that.modelFor('authenticated');
-          }, 2000);
-        }, 1500);
-      });
-    },
-    afterModel: function afterModel() {
-      return new Ember['default'].RSVP.Promise(function (resolve, reject) {
-        setTimeout(function () {
-          console.log("afterModel - child");resolve({ whichModel: "child" });
-        }, 2500);
+          resolve({ whichModel: "child" });console.log("child - model resolved");
+        }, 3000);
       });
     }
   });
@@ -208,25 +190,12 @@ define('ember-parallel-model-demo/routes/authenticated/parent', ['exports', 'emb
   'use strict';
 
   exports['default'] = Ember['default'].Route.extend({
-    beforeModel: function beforeModel() {
-      return new Ember['default'].RSVP.Promise(function (resolve, reject) {
-        setTimeout(function () {
-          console.log("beforeModel - parent");resolve({ whichModel: "parent" });
-        }, 1500);
-      });
-    },
     model: function model() {
+      console.log("parent - model entered");
       return new Ember['default'].RSVP.Promise(function (resolve, reject) {
         setTimeout(function () {
-          console.log("model - parent");resolve({ whichModel: "parent" });
-        }, 1500);
-      });
-    },
-    afterModel: function afterModel() {
-      return new Ember['default'].RSVP.Promise(function (resolve, reject) {
-        setTimeout(function () {
-          console.log("afterModel - parent");resolve({ whichModel: "parent" });
-        }, 1500);
+          resolve({ whichModel: "parent" });console.log("parent - model resolved");
+        }, 1000);
       });
     }
   });
@@ -237,25 +206,12 @@ define('ember-parallel-model-demo/routes/authenticated', ['exports', 'ember'], f
   'use strict';
 
   exports['default'] = Ember['default'].Route.extend({
-    beforeModel: function beforeModel() {
-      return new Ember['default'].RSVP.Promise(function (resolve, reject) {
-        setTimeout(function () {
-          console.log("beforeModel - authenticated");resolve({ whichModel: "authenticated" });
-        }, 1500);
-      });
-    },
     model: function model() {
+      console.log("authenticated - model entered");
       return new Ember['default'].RSVP.Promise(function (resolve, reject) {
         setTimeout(function () {
-          console.log("model - authenticated");resolve({ whichModel: "authenticated" });
-        }, 1500);
-      });
-    },
-    afterModel: function afterModel() {
-      return new Ember['default'].RSVP.Promise(function (resolve, reject) {
-        setTimeout(function () {
-          console.log("afterModel - authenticated");resolve({ whichModel: "authenticated" });
-        }, 1500);
+          resolve({ whichModel: "authenticated" });console.log("authenticated - model resolved");
+        }, 2000);
       });
     }
   });
@@ -400,7 +356,7 @@ define('ember-parallel-model-demo/templates/authenticated/parent/child', ['expor
         dom.appendChild(el0, el1);
         var el1 = dom.createComment("");
         dom.appendChild(el0, el1);
-        var el1 = dom.createTextNode("\n");
+        var el1 = dom.createTextNode(" loaded\n");
         dom.appendChild(el0, el1);
         var el1 = dom.createComment("");
         dom.appendChild(el0, el1);
@@ -503,7 +459,7 @@ define('ember-parallel-model-demo/templates/authenticated/parent', ['exports'], 
         dom.appendChild(el0, el1);
         var el1 = dom.createComment("");
         dom.appendChild(el0, el1);
-        var el1 = dom.createTextNode("\n");
+        var el1 = dom.createTextNode(" loaded\n");
         dom.appendChild(el0, el1);
         var el1 = dom.createComment("");
         dom.appendChild(el0, el1);
@@ -561,7 +517,7 @@ define('ember-parallel-model-demo/templates/authenticated', ['exports'], functio
         dom.appendChild(el0, el1);
         var el1 = dom.createComment("");
         dom.appendChild(el0, el1);
-        var el1 = dom.createTextNode("\n");
+        var el1 = dom.createTextNode(" loaded\n");
         dom.appendChild(el0, el1);
         var el1 = dom.createComment("");
         dom.appendChild(el0, el1);
@@ -723,7 +679,7 @@ define('ember-parallel-model-demo/tests/routes/authenticated/parent/child.jshint
 
   QUnit.module('JSHint - routes/authenticated/parent');
   QUnit.test('routes/authenticated/parent/child.js should pass jshint', function(assert) { 
-    assert.ok(false, 'routes/authenticated/parent/child.js should pass jshint.\nroutes/authenticated/parent/child.js: line 5, col 53, \'reject\' is defined but never used.\nroutes/authenticated/parent/child.js: line 12, col 53, \'reject\' is defined but never used.\nroutes/authenticated/parent/child.js: line 23, col 53, \'reject\' is defined but never used.\n\n3 errors'); 
+    assert.ok(false, 'routes/authenticated/parent/child.js should pass jshint.\nroutes/authenticated/parent/child.js: line 7, col 53, \'reject\' is defined but never used.\n\n1 error'); 
   });
 
 });
@@ -743,7 +699,7 @@ define('ember-parallel-model-demo/tests/routes/authenticated/parent.jshint', fun
 
   QUnit.module('JSHint - routes/authenticated');
   QUnit.test('routes/authenticated/parent.js should pass jshint', function(assert) { 
-    assert.ok(false, 'routes/authenticated/parent.js should pass jshint.\nroutes/authenticated/parent.js: line 5, col 53, \'reject\' is defined but never used.\nroutes/authenticated/parent.js: line 10, col 53, \'reject\' is defined but never used.\nroutes/authenticated/parent.js: line 15, col 53, \'reject\' is defined but never used.\n\n3 errors'); 
+    assert.ok(false, 'routes/authenticated/parent.js should pass jshint.\nroutes/authenticated/parent.js: line 6, col 53, \'reject\' is defined but never used.\n\n1 error'); 
   });
 
 });
@@ -753,7 +709,7 @@ define('ember-parallel-model-demo/tests/routes/authenticated.jshint', function (
 
   QUnit.module('JSHint - routes');
   QUnit.test('routes/authenticated.js should pass jshint', function(assert) { 
-    assert.ok(false, 'routes/authenticated.js should pass jshint.\nroutes/authenticated.js: line 5, col 53, \'reject\' is defined but never used.\nroutes/authenticated.js: line 10, col 53, \'reject\' is defined but never used.\nroutes/authenticated.js: line 15, col 53, \'reject\' is defined but never used.\n\n3 errors'); 
+    assert.ok(false, 'routes/authenticated.js should pass jshint.\nroutes/authenticated.js: line 6, col 53, \'reject\' is defined but never used.\n\n1 error'); 
   });
 
 });
@@ -781,6 +737,41 @@ define('ember-parallel-model-demo/tests/test-helper.jshint', function () {
   QUnit.module('JSHint - .');
   QUnit.test('test-helper.js should pass jshint', function(assert) { 
     assert.ok(true, 'test-helper.js should pass jshint.'); 
+  });
+
+});
+define('ember-parallel-model-demo/tests/unit/initializers/prefetch-patch-test', ['ember', 'ember-parallel-model-demo/initializers/prefetch-patch', 'qunit'], function (Ember, prefetch_patch, qunit) {
+
+  'use strict';
+
+  var registry, application;
+
+  qunit.module('Unit | Initializer | prefetch patch', {
+    beforeEach: function beforeEach() {
+      Ember['default'].run(function () {
+        application = Ember['default'].Application.create();
+        registry = application.registry;
+        application.deferReadiness();
+      });
+    }
+  });
+
+  // Replace this with your real tests.
+  qunit.test('it works', function (assert) {
+    prefetch_patch.initialize(registry, application);
+
+    // you would normally confirm the results of the initializer here
+    assert.ok(true);
+  });
+
+});
+define('ember-parallel-model-demo/tests/unit/initializers/prefetch-patch-test.jshint', function () {
+
+  'use strict';
+
+  QUnit.module('JSHint - unit/initializers');
+  QUnit.test('unit/initializers/prefetch-patch-test.js should pass jshint', function(assert) { 
+    assert.ok(true, 'unit/initializers/prefetch-patch-test.js should pass jshint.'); 
   });
 
 });
@@ -962,7 +953,7 @@ catch(err) {
 if (runningTests) {
   require("ember-parallel-model-demo/tests/test-helper");
 } else {
-  require("ember-parallel-model-demo/app")["default"].create({"name":"ember-parallel-model-demo","version":"0.0.0+ca2a36cd"});
+  require("ember-parallel-model-demo/app")["default"].create({"name":"ember-parallel-model-demo","version":"0.0.0+6dfee13f"});
 }
 
 /* jshint ignore:end */

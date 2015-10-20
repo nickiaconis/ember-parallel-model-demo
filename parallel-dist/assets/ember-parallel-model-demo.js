@@ -135,6 +135,143 @@ define('ember-parallel-model-demo/initializers/export-application-global', ['exp
   };
 
 });
+define('ember-parallel-model-demo/initializers/prefetched-patch', ['exports', 'ember'], function (exports, Ember) {
+
+  'use strict';
+
+  exports.initialize = initialize;
+
+  var hasInitialized = false;
+
+  function abortBeforeTransitioning() {
+    var activeTransition = this.router.router.activeTransition;
+
+    if (activeTransition != null) {
+      activeTransition.abort();
+    }
+
+    return this._super.apply(this, arguments);
+  }
+
+  function initialize() {
+    if (!hasInitialized) {
+      hasInitialized = true;
+
+      Ember['default'].Route.reopen({
+        /**
+          Returns a promise that resolves the prefetched data of a parent
+          (or any ancestor) route in a route hierarchy.  During a transition,
+          all routes have the opportunity to prefetch data, and if a route needs
+          access to a parent route's prefetched data, it can call
+          `this.prefetched(theNameOfParentRoute)` to retrieve a promise that
+          resolves with it.
+           Example
+           ```javascript
+          App.Router.map(function() {
+            this.route('post', { path: '/post/:post_id' }, function() {
+              this.route('comments', { resetNamespace: true });
+            });
+          });
+           App.CommentsRoute = Ember.Route.extend({
+            async prefetch(params) {
+              return this.store.findRecord('user', (await this.prefetched('post')).author.id);
+            },
+             model(params) {
+              return Ember.RSVP.hash({
+                postAuthor: this.prefetched(this.routeName),
+                comments: this.store.findAll('comment')
+              });
+            }
+          });
+          ```
+           @method prefetched
+          @param {String} name the name of the route
+          @return {Promise} a promise that resolves with the prefetched data
+          @public
+        */
+        prefetched: function prefetched(name) {
+          var route = this.container.lookup('route:' + name);
+          return Ember['default'].RSVP.Promise.resolve(route && route.asyncData);
+        },
+
+        model: function model(params, transition) {
+          if (this.asyncData) {
+            return this.asyncData;
+          }
+
+          return this._super(params, transition);
+        },
+
+        transitionTo: abortBeforeTransitioning,
+        replaceWith: abortBeforeTransitioning
+      });
+    }
+  }
+
+  exports['default'] = {
+    name: 'prefetched-patch',
+    initialize: initialize
+  };
+
+});
+define('ember-parallel-model-demo/instance-initializers/prefetch-patch', ['exports', 'ember'], function (exports, Ember) {
+
+  'use strict';
+
+  exports.initialize = initialize;
+
+  function initialize(instance) {
+    var lookup = instance.lookup && instance.lookup.bind(instance) || instance.container.lookup && instance.container.lookup.bind(instance.container);
+    var router = lookup('router:main');
+
+    router.on('willTransition', function (transition) {
+      var pivotHandler = transition.pivotHandler;
+
+      // If there is no pivot, we should try to prefetch all handlers.
+      var hasSeenPivot = pivotHandler == null ? true : false;
+
+      transition.handlerInfos.forEach(function (handlerInfo) {
+        // Don't prefetch handlers above the pivot.
+        if (!hasSeenPivot) {
+          // The pivot is the first common ancestor, so it is skipped as well.
+          if (handlerInfo.handler === pivotHandler) {
+            hasSeenPivot = true;
+          }
+
+          return;
+        }
+
+        // Skip handlers that have been provided a model.
+        if (handlerInfo.context != null) {
+          return;
+        }
+
+        // Build fullParams as in unresolved-handler-info-by-param#getModel.
+        var fullParams = handlerInfo.params || {};
+        if (transition && transition.queryParams) {
+          fullParams = Ember['default'].copy(fullParams);
+          fullParams.queryParams = transition.queryParams;
+        }
+
+        // Run the prefetch hook if the route has one.
+        var promise = handlerInfo.runSharedModelHook(transition, 'prefetch', [fullParams]);
+
+        // runSharedModelHook always returns a promise. We check to make
+        // sure the promise is still pending or has resolved with something
+        // other than undefined before stashing it on the route.
+        if (!promise._state || typeof promise._result !== 'undefined') {
+          handlerInfo.handler.asyncData = promise;
+        }
+      });
+    });
+  }
+
+  exports['default'] = {
+    name: 'prefetch-patch',
+    initialize: initialize
+  };
+
+});
 define('ember-parallel-model-demo/router', ['exports', 'ember', 'ember-parallel-model-demo/config/environment'], function (exports, Ember, config) {
 
   'use strict';
@@ -166,31 +303,23 @@ define('ember-parallel-model-demo/routes/authenticated/parent/child', ['exports'
   'use strict';
 
   exports['default'] = Ember['default'].Route.extend({
-    beforeModel: function beforeModel() {
+    prefetch: function prefetch() {
+      console.log("child - prefetch entered");
+      this.modelFor('authenticated'); // => undefined
+      this.prefetched('authenticated'); // => Promise
       return new Ember['default'].RSVP.Promise(function (resolve, reject) {
         setTimeout(function () {
-          console.log("beforeModel - child");resolve({ whichModel: "child" });
-        }, 1500);
+          resolve({ whichModel: "child" });console.log("child - prefetch resolved");
+        }, 3000);
       });
     },
     model: function model() {
-      var that = this;
-      this.modelFor('authenticated');
-      return new Ember['default'].RSVP.Promise(function (resolve, reject) {
-        setTimeout(function () {
-          console.log("model - child");
-          resolve({ whichModel: "child" });
-          setTimeout(function () {
-            that.modelFor('authenticated');
-          }, 2000);
-        }, 1500);
-      });
-    },
-    afterModel: function afterModel() {
-      return new Ember['default'].RSVP.Promise(function (resolve, reject) {
-        setTimeout(function () {
-          console.log("afterModel - child");resolve({ whichModel: "child" });
-        }, 2500);
+      console.log("child - model entered");
+      this.modelFor('authenticated'); // => Object
+      this.prefetched('authenticated'); // => Promise
+      return this._super.apply(this, arguments).then(function (value) {
+        console.log("child - model resolved");
+        return value;
       });
     }
   });
@@ -208,25 +337,19 @@ define('ember-parallel-model-demo/routes/authenticated/parent', ['exports', 'emb
   'use strict';
 
   exports['default'] = Ember['default'].Route.extend({
-    beforeModel: function beforeModel() {
+    prefetch: function prefetch() {
+      console.log("parent - prefetch entered");
       return new Ember['default'].RSVP.Promise(function (resolve, reject) {
         setTimeout(function () {
-          console.log("beforeModel - parent");resolve({ whichModel: "parent" });
-        }, 1500);
+          resolve({ whichModel: "parent" });console.log("parent - prefetch resolved");
+        }, 1000);
       });
     },
     model: function model() {
-      return new Ember['default'].RSVP.Promise(function (resolve, reject) {
-        setTimeout(function () {
-          console.log("model - parent");resolve({ whichModel: "parent" });
-        }, 1500);
-      });
-    },
-    afterModel: function afterModel() {
-      return new Ember['default'].RSVP.Promise(function (resolve, reject) {
-        setTimeout(function () {
-          console.log("afterModel - parent");resolve({ whichModel: "parent" });
-        }, 1500);
+      console.log("parent - model entered");
+      return this._super.apply(this, arguments).then(function (value) {
+        console.log("parent - model resolved");
+        return value;
       });
     }
   });
@@ -237,25 +360,19 @@ define('ember-parallel-model-demo/routes/authenticated', ['exports', 'ember'], f
   'use strict';
 
   exports['default'] = Ember['default'].Route.extend({
-    beforeModel: function beforeModel() {
+    prefetch: function prefetch() {
+      console.log("authenticated - prefetch entered");
       return new Ember['default'].RSVP.Promise(function (resolve, reject) {
         setTimeout(function () {
-          console.log("beforeModel - authenticated");resolve({ whichModel: "authenticated" });
-        }, 1500);
+          resolve({ whichModel: "authenticated" });console.log("authenticated - prefetch resolved");
+        }, 2000);
       });
     },
     model: function model() {
-      return new Ember['default'].RSVP.Promise(function (resolve, reject) {
-        setTimeout(function () {
-          console.log("model - authenticated");resolve({ whichModel: "authenticated" });
-        }, 1500);
-      });
-    },
-    afterModel: function afterModel() {
-      return new Ember['default'].RSVP.Promise(function (resolve, reject) {
-        setTimeout(function () {
-          console.log("afterModel - authenticated");resolve({ whichModel: "authenticated" });
-        }, 1500);
+      console.log("authenticated - model entered");
+      return this._super.apply(this, arguments).then(function (value) {
+        console.log("authenticated - model resolved");
+        return value;
       });
     }
   });
@@ -400,7 +517,7 @@ define('ember-parallel-model-demo/templates/authenticated/parent/child', ['expor
         dom.appendChild(el0, el1);
         var el1 = dom.createComment("");
         dom.appendChild(el0, el1);
-        var el1 = dom.createTextNode("\n");
+        var el1 = dom.createTextNode(" loaded\n");
         dom.appendChild(el0, el1);
         var el1 = dom.createComment("");
         dom.appendChild(el0, el1);
@@ -503,7 +620,7 @@ define('ember-parallel-model-demo/templates/authenticated/parent', ['exports'], 
         dom.appendChild(el0, el1);
         var el1 = dom.createComment("");
         dom.appendChild(el0, el1);
-        var el1 = dom.createTextNode("\n");
+        var el1 = dom.createTextNode(" loaded\n");
         dom.appendChild(el0, el1);
         var el1 = dom.createComment("");
         dom.appendChild(el0, el1);
@@ -561,7 +678,7 @@ define('ember-parallel-model-demo/templates/authenticated', ['exports'], functio
         dom.appendChild(el0, el1);
         var el1 = dom.createComment("");
         dom.appendChild(el0, el1);
-        var el1 = dom.createTextNode("\n");
+        var el1 = dom.createTextNode(" loaded\n");
         dom.appendChild(el0, el1);
         var el1 = dom.createComment("");
         dom.appendChild(el0, el1);
@@ -635,8 +752,8 @@ define('ember-parallel-model-demo/tests/app.jshint', function () {
   'use strict';
 
   QUnit.module('JSHint - .');
-  QUnit.test('app.js should pass jshint', function(assert) { 
-    assert.ok(true, 'app.js should pass jshint.'); 
+  QUnit.test('app.js should pass jshint', function(assert) {
+    assert.ok(true, 'app.js should pass jshint.');
   });
 
 });
@@ -659,8 +776,8 @@ define('ember-parallel-model-demo/tests/helpers/resolver.jshint', function () {
   'use strict';
 
   QUnit.module('JSHint - helpers');
-  QUnit.test('helpers/resolver.js should pass jshint', function(assert) { 
-    assert.ok(true, 'helpers/resolver.js should pass jshint.'); 
+  QUnit.test('helpers/resolver.js should pass jshint', function(assert) {
+    assert.ok(true, 'helpers/resolver.js should pass jshint.');
   });
 
 });
@@ -692,8 +809,28 @@ define('ember-parallel-model-demo/tests/helpers/start-app.jshint', function () {
   'use strict';
 
   QUnit.module('JSHint - helpers');
-  QUnit.test('helpers/start-app.js should pass jshint', function(assert) { 
-    assert.ok(true, 'helpers/start-app.js should pass jshint.'); 
+  QUnit.test('helpers/start-app.js should pass jshint', function(assert) {
+    assert.ok(true, 'helpers/start-app.js should pass jshint.');
+  });
+
+});
+define('ember-parallel-model-demo/tests/initializers/prefetched-patch.jshint', function () {
+
+  'use strict';
+
+  QUnit.module('JSHint - initializers');
+  QUnit.test('initializers/prefetched-patch.js should pass jshint', function(assert) {
+    assert.ok(true, 'initializers/prefetched-patch.js should pass jshint.');
+  });
+
+});
+define('ember-parallel-model-demo/tests/instance-initializers/prefetch-patch.jshint', function () {
+
+  'use strict';
+
+  QUnit.module('JSHint - instance-initializers');
+  QUnit.test('instance-initializers/prefetch-patch.js should pass jshint', function(assert) {
+    assert.ok(true, 'instance-initializers/prefetch-patch.js should pass jshint.');
   });
 
 });
@@ -702,8 +839,8 @@ define('ember-parallel-model-demo/tests/router.jshint', function () {
   'use strict';
 
   QUnit.module('JSHint - .');
-  QUnit.test('router.js should pass jshint', function(assert) { 
-    assert.ok(true, 'router.js should pass jshint.'); 
+  QUnit.test('router.js should pass jshint', function(assert) {
+    assert.ok(true, 'router.js should pass jshint.');
   });
 
 });
@@ -712,8 +849,8 @@ define('ember-parallel-model-demo/tests/routes/authenticated/loading.jshint', fu
   'use strict';
 
   QUnit.module('JSHint - routes/authenticated');
-  QUnit.test('routes/authenticated/loading.js should pass jshint', function(assert) { 
-    assert.ok(true, 'routes/authenticated/loading.js should pass jshint.'); 
+  QUnit.test('routes/authenticated/loading.js should pass jshint', function(assert) {
+    assert.ok(true, 'routes/authenticated/loading.js should pass jshint.');
   });
 
 });
@@ -722,8 +859,8 @@ define('ember-parallel-model-demo/tests/routes/authenticated/parent/child.jshint
   'use strict';
 
   QUnit.module('JSHint - routes/authenticated/parent');
-  QUnit.test('routes/authenticated/parent/child.js should pass jshint', function(assert) { 
-    assert.ok(false, 'routes/authenticated/parent/child.js should pass jshint.\nroutes/authenticated/parent/child.js: line 5, col 53, \'reject\' is defined but never used.\nroutes/authenticated/parent/child.js: line 12, col 53, \'reject\' is defined but never used.\nroutes/authenticated/parent/child.js: line 23, col 53, \'reject\' is defined but never used.\n\n3 errors'); 
+  QUnit.test('routes/authenticated/parent/child.js should pass jshint', function(assert) {
+    assert.ok(false, 'routes/authenticated/parent/child.js should pass jshint.\nroutes/authenticated/parent/child.js: line 8, col 53, \'reject\' is defined but never used.\n\n1 error');
   });
 
 });
@@ -732,8 +869,8 @@ define('ember-parallel-model-demo/tests/routes/authenticated/parent/loading.jshi
   'use strict';
 
   QUnit.module('JSHint - routes/authenticated/parent');
-  QUnit.test('routes/authenticated/parent/loading.js should pass jshint', function(assert) { 
-    assert.ok(true, 'routes/authenticated/parent/loading.js should pass jshint.'); 
+  QUnit.test('routes/authenticated/parent/loading.js should pass jshint', function(assert) {
+    assert.ok(true, 'routes/authenticated/parent/loading.js should pass jshint.');
   });
 
 });
@@ -742,8 +879,8 @@ define('ember-parallel-model-demo/tests/routes/authenticated/parent.jshint', fun
   'use strict';
 
   QUnit.module('JSHint - routes/authenticated');
-  QUnit.test('routes/authenticated/parent.js should pass jshint', function(assert) { 
-    assert.ok(false, 'routes/authenticated/parent.js should pass jshint.\nroutes/authenticated/parent.js: line 5, col 53, \'reject\' is defined but never used.\nroutes/authenticated/parent.js: line 10, col 53, \'reject\' is defined but never used.\nroutes/authenticated/parent.js: line 15, col 53, \'reject\' is defined but never used.\n\n3 errors'); 
+  QUnit.test('routes/authenticated/parent.js should pass jshint', function(assert) {
+    assert.ok(false, 'routes/authenticated/parent.js should pass jshint.\nroutes/authenticated/parent.js: line 6, col 53, \'reject\' is defined but never used.\n\n1 error');
   });
 
 });
@@ -752,8 +889,8 @@ define('ember-parallel-model-demo/tests/routes/authenticated.jshint', function (
   'use strict';
 
   QUnit.module('JSHint - routes');
-  QUnit.test('routes/authenticated.js should pass jshint', function(assert) { 
-    assert.ok(false, 'routes/authenticated.js should pass jshint.\nroutes/authenticated.js: line 5, col 53, \'reject\' is defined but never used.\nroutes/authenticated.js: line 10, col 53, \'reject\' is defined but never used.\nroutes/authenticated.js: line 15, col 53, \'reject\' is defined but never used.\n\n3 errors'); 
+  QUnit.test('routes/authenticated.js should pass jshint', function(assert) {
+    assert.ok(false, 'routes/authenticated.js should pass jshint.\nroutes/authenticated.js: line 6, col 53, \'reject\' is defined but never used.\n\n1 error');
   });
 
 });
@@ -762,8 +899,8 @@ define('ember-parallel-model-demo/tests/routes/loading.jshint', function () {
   'use strict';
 
   QUnit.module('JSHint - routes');
-  QUnit.test('routes/loading.js should pass jshint', function(assert) { 
-    assert.ok(true, 'routes/loading.js should pass jshint.'); 
+  QUnit.test('routes/loading.js should pass jshint', function(assert) {
+    assert.ok(true, 'routes/loading.js should pass jshint.');
   });
 
 });
@@ -779,8 +916,43 @@ define('ember-parallel-model-demo/tests/test-helper.jshint', function () {
   'use strict';
 
   QUnit.module('JSHint - .');
-  QUnit.test('test-helper.js should pass jshint', function(assert) { 
-    assert.ok(true, 'test-helper.js should pass jshint.'); 
+  QUnit.test('test-helper.js should pass jshint', function(assert) {
+    assert.ok(true, 'test-helper.js should pass jshint.');
+  });
+
+});
+define('ember-parallel-model-demo/tests/unit/initializers/prefetch-patch-test', ['ember', 'ember-parallel-model-demo/initializers/prefetch-patch', 'qunit'], function (Ember, prefetch_patch, qunit) {
+
+  'use strict';
+
+  var registry, application;
+
+  qunit.module('Unit | Initializer | prefetch patch', {
+    beforeEach: function beforeEach() {
+      Ember['default'].run(function () {
+        application = Ember['default'].Application.create();
+        registry = application.registry;
+        application.deferReadiness();
+      });
+    }
+  });
+
+  // Replace this with your real tests.
+  qunit.test('it works', function (assert) {
+    prefetch_patch.initialize(registry, application);
+
+    // you would normally confirm the results of the initializer here
+    assert.ok(true);
+  });
+
+});
+define('ember-parallel-model-demo/tests/unit/initializers/prefetch-patch-test.jshint', function () {
+
+  'use strict';
+
+  QUnit.module('JSHint - unit/initializers');
+  QUnit.test('unit/initializers/prefetch-patch-test.js should pass jshint', function(assert) {
+    assert.ok(true, 'unit/initializers/prefetch-patch-test.js should pass jshint.');
   });
 
 });
@@ -804,8 +976,8 @@ define('ember-parallel-model-demo/tests/unit/routes/authenticated/loading-test.j
   'use strict';
 
   QUnit.module('JSHint - unit/routes/authenticated');
-  QUnit.test('unit/routes/authenticated/loading-test.js should pass jshint', function(assert) { 
-    assert.ok(true, 'unit/routes/authenticated/loading-test.js should pass jshint.'); 
+  QUnit.test('unit/routes/authenticated/loading-test.js should pass jshint', function(assert) {
+    assert.ok(true, 'unit/routes/authenticated/loading-test.js should pass jshint.');
   });
 
 });
@@ -829,8 +1001,8 @@ define('ember-parallel-model-demo/tests/unit/routes/authenticated/parent/child-t
   'use strict';
 
   QUnit.module('JSHint - unit/routes/authenticated/parent');
-  QUnit.test('unit/routes/authenticated/parent/child-test.js should pass jshint', function(assert) { 
-    assert.ok(true, 'unit/routes/authenticated/parent/child-test.js should pass jshint.'); 
+  QUnit.test('unit/routes/authenticated/parent/child-test.js should pass jshint', function(assert) {
+    assert.ok(true, 'unit/routes/authenticated/parent/child-test.js should pass jshint.');
   });
 
 });
@@ -854,8 +1026,8 @@ define('ember-parallel-model-demo/tests/unit/routes/authenticated/parent/loading
   'use strict';
 
   QUnit.module('JSHint - unit/routes/authenticated/parent');
-  QUnit.test('unit/routes/authenticated/parent/loading-test.js should pass jshint', function(assert) { 
-    assert.ok(true, 'unit/routes/authenticated/parent/loading-test.js should pass jshint.'); 
+  QUnit.test('unit/routes/authenticated/parent/loading-test.js should pass jshint', function(assert) {
+    assert.ok(true, 'unit/routes/authenticated/parent/loading-test.js should pass jshint.');
   });
 
 });
@@ -879,8 +1051,8 @@ define('ember-parallel-model-demo/tests/unit/routes/authenticated/parent-test.js
   'use strict';
 
   QUnit.module('JSHint - unit/routes/authenticated');
-  QUnit.test('unit/routes/authenticated/parent-test.js should pass jshint', function(assert) { 
-    assert.ok(true, 'unit/routes/authenticated/parent-test.js should pass jshint.'); 
+  QUnit.test('unit/routes/authenticated/parent-test.js should pass jshint', function(assert) {
+    assert.ok(true, 'unit/routes/authenticated/parent-test.js should pass jshint.');
   });
 
 });
@@ -904,8 +1076,8 @@ define('ember-parallel-model-demo/tests/unit/routes/authenticated-test.jshint', 
   'use strict';
 
   QUnit.module('JSHint - unit/routes');
-  QUnit.test('unit/routes/authenticated-test.js should pass jshint', function(assert) { 
-    assert.ok(true, 'unit/routes/authenticated-test.js should pass jshint.'); 
+  QUnit.test('unit/routes/authenticated-test.js should pass jshint', function(assert) {
+    assert.ok(true, 'unit/routes/authenticated-test.js should pass jshint.');
   });
 
 });
@@ -929,8 +1101,8 @@ define('ember-parallel-model-demo/tests/unit/routes/loading-test.jshint', functi
   'use strict';
 
   QUnit.module('JSHint - unit/routes');
-  QUnit.test('unit/routes/loading-test.js should pass jshint', function(assert) { 
-    assert.ok(true, 'unit/routes/loading-test.js should pass jshint.'); 
+  QUnit.test('unit/routes/loading-test.js should pass jshint', function(assert) {
+    assert.ok(true, 'unit/routes/loading-test.js should pass jshint.');
   });
 
 });
@@ -962,7 +1134,7 @@ catch(err) {
 if (runningTests) {
   require("ember-parallel-model-demo/tests/test-helper");
 } else {
-  require("ember-parallel-model-demo/app")["default"].create({"name":"ember-parallel-model-demo","version":"0.0.0+ca2a36cd"});
+  require("ember-parallel-model-demo/app")["default"].create({"name":"ember-parallel-model-demo","version":"0.0.0+4448e38c"});
 }
 
 /* jshint ignore:end */

@@ -37149,7 +37149,7 @@ enifed('ember-routing/system/query_params', ['exports', 'ember-runtime/system/ob
     values: null
   });
 });
-enifed("ember-routing/system/route", ["exports", "ember-metal/core", "ember-metal/error", "ember-metal/property_get", "ember-metal/property_set", "ember-metal/get_properties", "ember-metal/enumerable_utils", "ember-metal/is_none", "ember-metal/computed", "ember-metal/merge", "ember-runtime/utils", "ember-metal/run_loop", "ember-metal/keys", "ember-runtime/copy", "ember-runtime/system/string", "ember-runtime/system/object", "ember-runtime/mixins/evented", "ember-runtime/mixins/action_handler", "ember-routing/system/generate_controller", "ember-routing/utils", "rsvp/promise"], function (exports, _emberMetalCore, _emberMetalError, _emberMetalProperty_get, _emberMetalProperty_set, _emberMetalGet_properties, _emberMetalEnumerable_utils, _emberMetalIs_none, _emberMetalComputed, _emberMetalMerge, _emberRuntimeUtils, _emberMetalRun_loop, _emberMetalKeys, _emberRuntimeCopy, _emberRuntimeSystemString, _emberRuntimeSystemObject, _emberRuntimeMixinsEvented, _emberRuntimeMixinsAction_handler, _emberRoutingSystemGenerate_controller, _emberRoutingUtils, _rsvpPromise) {
+enifed("ember-routing/system/route", ["exports", "ember-metal/core", "ember-metal/error", "ember-metal/property_get", "ember-metal/property_set", "ember-metal/get_properties", "ember-metal/enumerable_utils", "ember-metal/is_none", "ember-metal/computed", "ember-metal/merge", "ember-runtime/utils", "ember-metal/run_loop", "ember-metal/keys", "ember-runtime/copy", "ember-runtime/system/string", "ember-runtime/system/object", "ember-runtime/mixins/evented", "ember-runtime/mixins/action_handler", "ember-routing/system/generate_controller", "ember-routing/utils"], function (exports, _emberMetalCore, _emberMetalError, _emberMetalProperty_get, _emberMetalProperty_set, _emberMetalGet_properties, _emberMetalEnumerable_utils, _emberMetalIs_none, _emberMetalComputed, _emberMetalMerge, _emberRuntimeUtils, _emberMetalRun_loop, _emberMetalKeys, _emberRuntimeCopy, _emberRuntimeSystemString, _emberRuntimeSystemObject, _emberRuntimeMixinsEvented, _emberRuntimeMixinsAction_handler, _emberRoutingSystemGenerate_controller, _emberRoutingUtils) {
   "use strict";
 
   var slice = Array.prototype.slice;
@@ -38388,11 +38388,11 @@ enifed("ember-routing/system/route", ["exports", "ember-metal/core", "ember-meta
       if (!name && sawParams) {
         return _emberRuntimeCopy["default"](params);
       } else if (!name) {
-        if (transition.requestIndex < 2) {
+        if (transition.resolveIndex < 1) {
           return;
         }
 
-        var parentModel = transition.state.handlerInfos[transition.requestIndex - 2].modelPromise;
+        var parentModel = transition.state.handlerInfos[transition.resolveIndex - 1].context;
 
         return parentModel;
       }
@@ -38671,7 +38671,7 @@ enifed("ember-routing/system/route", ["exports", "ember-metal/core", "ember-meta
         }
       }
 
-      return route && _rsvpPromise["default"].resolve(route.currentModel);
+      return route && route.currentModel;
     },
 
     /**
@@ -64454,43 +64454,31 @@ enifed('router/handler-info', ['exports', './utils', 'rsvp/promise'], function (
       return this.params || {};
     },
 
-    request: function (payload) {
-      var beforeModel = _utils.bind(this, this.runBeforeModelHook, payload),
-          model = _utils.bind(this, this.getModel, payload),
-          afterModel = _utils.bind(this, this.runAfterModelHook, payload);
-
-      this.beforeModelPromise = beforeModel();
-      this.modelPromise = model();
-      this.afterModelPromise = afterModel(this.modelPromise);
-    },
-
     resolve: function (shouldContinue, payload) {
       var checkForAbort = _utils.bind(this, this.checkForAbort, shouldContinue),
-          becomeResolved = _utils.bind(this, this.becomeResolved, payload),
-          beforeModel = _utils.bind(this, function() {
-            if (payload.trigger) {
-              payload.trigger(true, 'willResolveModel', payload, this.handler);
-            }
-            return this.beforeModelPromise;
-          }),
-          model = _utils.bind(this, function() { return this.modelPromise; }),
-          afterModel = _utils.bind(this, function() { return this.afterModelPromise; });
+          beforeModel = _utils.bind(this, this.runBeforeModelHook, payload),
+          model = _utils.bind(this, this.getModel, payload),
+          afterModel = _utils.bind(this, this.runAfterModelHook, payload),
+          becomeResolved = _utils.bind(this, this.becomeResolved, payload);
 
       return _rsvpPromise["default"].resolve(undefined, this.promiseLabel("Start handler")).then(checkForAbort, null, this.promiseLabel("Check for abort")).then(beforeModel, null, this.promiseLabel("Before model")).then(checkForAbort, null, this.promiseLabel("Check if aborted during 'beforeModel' hook")).then(model, null, this.promiseLabel("Model")).then(checkForAbort, null, this.promiseLabel("Check if aborted in 'model' hook")).then(afterModel, null, this.promiseLabel("After model")).then(checkForAbort, null, this.promiseLabel("Check if aborted in 'afterModel' hook")).then(becomeResolved, null, this.promiseLabel("Become resolved"));
     },
 
     runBeforeModelHook: function (payload) {
+      if (payload.trigger) {
+        payload.trigger(true, 'willResolveModel', payload, this.handler);
+      }
       return this.runSharedModelHook(payload, 'beforeModel', []);
     },
 
-    runAfterModelHook: function (payload, modelPromise) {
+    runAfterModelHook: function (payload, resolvedModel) {
       // Stash the resolved model on the payload.
       // This makes it possible for users to swap out
       // the resolved model in afterModel.
       var name = this.name;
-      this.stashResolvedModel(payload, modelPromise);
+      this.stashResolvedModel(payload, resolvedModel);
 
-      return this.runSharedModelHook(payload, 'afterModel', [modelPromise]).then(function () {
+      return this.runSharedModelHook(payload, 'afterModel', [resolvedModel]).then(function () {
         // Ignore the fulfilled value returned from afterModel.
         // Return the value stashed in resolvedModels, which
         // might have been swapped out in afterModel.
@@ -65816,7 +65804,6 @@ enifed('router/transition-state', ['exports', 'ember-metal/logger', './handler-i
       });
 
       payload = payload || {};
-      payload.requestIndex = 0;
       payload.resolveIndex = 0;
 
       var currentState = this;
@@ -65824,7 +65811,7 @@ enifed('router/transition-state', ['exports', 'ember-metal/logger', './handler-i
 
       t0 = performance.now();
       // The prelude RSVP.resolve() asyncs us into the promise land.
-      return _rsvpPromise["default"].resolve(null, this.promiseLabel("Start transition")).then(requestOneHandlerInfo, null, this.promiseLabel('Request handler')).then(resolveOneHandlerInfo, null, this.promiseLabel('Resolve handler'))['catch'](handleError, this.promiseLabel('Handle error'));
+      return _rsvpPromise["default"].resolve(null, this.promiseLabel("Start transition")).then(resolveOneHandlerInfo, null, this.promiseLabel('Resolve handler'))['catch'](handleError, this.promiseLabel('Handle error'));
 
       function innerShouldContinue() {
         return _rsvpPromise["default"].resolve(shouldContinue(), currentState.promiseLabel("Check if should continue"))['catch'](function (reason) {
@@ -65868,18 +65855,6 @@ enifed('router/transition-state', ['exports', 'ember-metal/logger', './handler-i
         // Proceed after ensuring that the redirect hook
         // didn't abort this transition by transitioning elsewhere.
         return innerShouldContinue().then(resolveOneHandlerInfo, null, currentState.promiseLabel('Resolve handler'));
-      }
-
-      function requestOneHandlerInfo() {
-        if (payload.requestIndex === currentState.handlerInfos.length) {
-          // Exit condition
-          return _rsvpPromise["default"].resolve(null, currentState.promiseLabel('Finished requests'));
-        }
-
-        var handlerInfo = currentState.handlerInfos[payload.requestIndex++];
-        handlerInfo.request(payload);
-
-        return requestOneHandlerInfo();
       }
 
       function resolveOneHandlerInfo() {
@@ -65979,7 +65954,6 @@ enifed('router/transition', ['exports', 'rsvp/promise', './handler-info', './uti
     intent: null,
     params: null,
     pivotHandler: null,
-    requestIndex: 0,
     resolveIndex: 0,
     handlerInfos: null,
     resolvedModels: null,
